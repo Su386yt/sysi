@@ -77,7 +77,6 @@ namespace sysi.compiler {
         private static SyComponent CreateSyComponentTree(string text, bool mergeWhitespace = false) {
             // Look for blocks
             var str = text;
-            //Console.WriteLine($"Reading \"{text}\"");
             str = str.Replace("\r\n", "\n");
             // Code blocks
             var codeBlockRegex = new Regex("`{3}(\\w+)?\\n([\\s\\S]+?)\\n`{3}", RegexOptions.Compiled);
@@ -88,6 +87,8 @@ namespace sysi.compiler {
             }
             // Lists
 
+
+            
             if (mergeWhitespace) {
                 // Merge new lines
                 var newLineRegex = new Regex("(?<!\n)\n(?!\n)", RegexOptions.Compiled);
@@ -102,7 +103,6 @@ namespace sysi.compiler {
             }
 
             // Look for inline level
-            // bold
             var headingRegex = new Regex("^(#{1,6})\\s+(.+)$", RegexOptions.Compiled);
             if (headingRegex.Match(str).Success) {
                 string[] parts = headingRegex.Split(str, 2);
@@ -146,28 +146,8 @@ namespace sysi.compiler {
                 string[] parts = inlineCodeRegex.Split(str, 2);
                 return new SyComponent([CreateSyComponentTree(parts[0]), new InlineCodeComponent([CreateSyComponentTree(parts[2])]), CreateSyComponentTree(parts[^1])]);
             }
-            return new TextComponent(text);
-        }
-        private static int CountUntilBreak(string str, char toCount, int startIndex = 0) {
-            var sum = 0;
-            for (var i = startIndex; i < str.Length; i++) {
-                if (str[i] != toCount) {
-                    break;
-                }
-                sum++;
-            }
-            return sum;
-        }
 
-        private static string ReplaceUntilBreak(string str, char toReplace, int startIndex = 0) {
-            var newStr = str;
-            for (var i = startIndex; i < str.Length; i++) {
-                if (newStr[i] != toReplace) {
-                    break;
-                }
-                newStr = newStr.Substring(0, i) + toReplace + newStr.Substring(1 + i);
-            }
-            return newStr;
+            return new TextComponent(text);
         }
     }
 
