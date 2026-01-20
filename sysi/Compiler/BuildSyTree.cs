@@ -86,8 +86,20 @@ namespace sysi.compiler {
                 return new SyComponent([CreateSyComponentTree(parts[0]), new CodeBlockComponent([new TextComponent(match)]), CreateSyComponentTree(parts[^1], true)]); // The second merge whitespace is true, because we haven't checked the end of the string yet.
             }
             // Lists
+            // Unnumbered lists
+            var unnumberedListBlockRegex = new Regex("^(?:[ \\t]*[-*+] .*(?:\r?\n|$))+", RegexOptions.Compiled | RegexOptions.Multiline);
+            if (unnumberedListBlockRegex.Match(str).Success) {
+                string[] parts = unnumberedListBlockRegex.Split(str, 2);
+                string match = unnumberedListBlockRegex.Match(str).Value;
 
+                List<SyComponent> list = new();
+                var listItemRegex = new Regex("^[ \\t]*[-*+] +(.*)", RegexOptions.Compiled | RegexOptions.Multiline);
+                foreach (var line in listItemRegex.Matches(match).ToArray()) {
+                    list.Add(CreateSyComponentTree((line?.Groups[1].Value) ?? ""));
+                }
 
+                return new SyComponent([CreateSyComponentTree(parts[0]), new ListComponent(list.ToArray()), CreateSyComponentTree(parts[^1], true)]);
+            }
             
             if (mergeWhitespace) {
                 // Merge new lines
@@ -178,7 +190,7 @@ namespace sysi.compiler {
     internal class HeadingComponent : SyComponent {
         int count;
         public override string AsHtml() {
-            return $"<h{count}>{base.AsHtml()}<\\h{count}>";
+            return $"<h{count}>{base.AsHtml()}</h{count}>";
         }
         public HeadingComponent(SyComponent[] children, int count) : base(children) {
             this.count = count;
@@ -187,7 +199,7 @@ namespace sysi.compiler {
 
     internal class QuoteComponent : SyComponent {
         public override string AsHtml() {
-            return $"<blockquote>{base.AsHtml()}<\\blockquote>";
+            return $"<blockquote>{base.AsHtml()}</blockquote>";
         }
         public QuoteComponent(SyComponent[] children) : base(children) {
         }
@@ -195,16 +207,30 @@ namespace sysi.compiler {
 
     internal class CodeBlockComponent : SyComponent {
         public override string AsHtml() {
-            return $"<pre><code>\n{base.AsHtml()}\n<\\pre><\\code>";
+            return $"<pre><code>\n{base.AsHtml()}\n</pre></code>";
         }
         public CodeBlockComponent(SyComponent[] children) : base(children) {
             this.children = children;
         }
     }
 
+    internal class ListComponent : SyComponent {
+         public override string AsHtml() {
+            string[] childrenText = new string[children.Length];
+            for (int i = 0; i < childrenText.Length; i++) {
+                childrenText[i] = $"<li>{children[i].AsHtml()}</li>\n";
+            }
+
+            return $"<ol>\n{string.Join("", childrenText)}\n</ol>";
+        }
+        public ListComponent(SyComponent[] children) : base(children) {
+            this.children = children;
+        }
+    }
+
     internal class BoldComponent : SyComponent {
         public override string AsHtml() {
-            return $"<strong>{base.AsHtml()}<\\strong>";
+            return $"<strong>{base.AsHtml()}</strong>";
         }
         public BoldComponent(SyComponent[] children) : base(children) {
             this.children = children;
@@ -213,7 +239,7 @@ namespace sysi.compiler {
 
     internal class UnderlineComponent : SyComponent {
         public override string AsHtml() {
-            return $"<u>{base.AsHtml()}<\\u>";
+            return $"<u>{base.AsHtml()}</u>";
         }
         public UnderlineComponent(SyComponent[] children) : base(children) {
             this.children = children;
@@ -222,7 +248,7 @@ namespace sysi.compiler {
 
     internal class ItaliciseComponent : SyComponent {
         public override string AsHtml() {
-            return $"<em>{base.AsHtml()}<\\em>";
+            return $"<em>{base.AsHtml()}</em>";
         }
         public ItaliciseComponent(SyComponent[] children) : base(children) {
             this.children = children;
@@ -231,7 +257,7 @@ namespace sysi.compiler {
 
     internal class StrikethroughComponent : SyComponent {
         public override string AsHtml() {
-            return $"<del>{base.AsHtml()}<\\del>";
+            return $"<del>{base.AsHtml()}</del>";
         }
         public StrikethroughComponent(SyComponent[] children) : base(children) {
             this.children = children;
@@ -240,7 +266,7 @@ namespace sysi.compiler {
 
     internal class InlineCodeComponent : SyComponent {
         public override string AsHtml() {
-            return $"<code>{base.AsHtml()}<\\code>";
+            return $"<code>{base.AsHtml()}</code>";
         }
         public InlineCodeComponent(SyComponent[] children) : base(children) {
             this.children = children;
