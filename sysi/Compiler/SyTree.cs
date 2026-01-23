@@ -10,7 +10,7 @@ using System.Xml;
 using static sysi.compiler.SyCategory;
 
 namespace sysi.compiler {
-    internal class BuildSyTree {
+    internal class SyTree {
         public static SyCategory BuildTree() { return BuildSyFileTree(Main.config.site_map); }
         public static SyCategory BuildSyFileTree(string path) {
             List<Sy> tree = new List<Sy>();
@@ -83,7 +83,7 @@ namespace sysi.compiler {
             if (codeBlockRegex.Match(str).Success) {
                 string[] parts = codeBlockRegex.Split(str, 2);
                 string match = codeBlockRegex.Match(str).Groups[2].Value;
-                return new SyComponent([CreateSyComponentTree(parts[0]), new CodeBlockComponent([new TextComponent(match)]), CreateSyComponentTree(parts[^1], true)]); // The second merge whitespace is true, because we haven't checked the end of the string yet.
+                return new SyComponent([CreateSyComponentTree(parts[0], mergeWhitespace), new CodeBlockComponent([new TextComponent(match)]), CreateSyComponentTree(parts[^1], mergeWhitespace)]); // The second merge whitespace is true, because we haven't checked the end of the string yet.
             }
             // Lists
             // Unnumbered lists
@@ -98,13 +98,14 @@ namespace sysi.compiler {
                     list.Add(CreateSyComponentTree((line?.Groups[1].Value) ?? ""));
                 }
 
-                return new SyComponent([CreateSyComponentTree(parts[0]), new ListComponent(list.ToArray()), CreateSyComponentTree(parts[^1], true)]);
+                return new SyComponent([CreateSyComponentTree(parts[0], mergeWhitespace), new ListComponent(list.ToArray()), CreateSyComponentTree(parts[^1], mergeWhitespace)]);
             }
-            
+
             if (mergeWhitespace) {
                 // Merge new lines
-                var newLineRegex = new Regex("(?<!\n)\n(?!\n)", RegexOptions.Compiled | RegexOptions.Multiline);
+                var newLineRegex = new Regex(@"(?<!\r?\n)\r?\n(?!\r?\n)", RegexOptions.Compiled);
                 str = newLineRegex.Replace(str, " ");
+               
 
                 var multiNewLineRegex = new Regex("\n{2,}", RegexOptions.Compiled | RegexOptions.Multiline);
                 str = multiNewLineRegex.Replace(str, "\n");
@@ -112,10 +113,12 @@ namespace sysi.compiler {
                 // Merge double spaces
                 var multiSpaceRegex = new Regex(" {2,}", RegexOptions.Compiled | RegexOptions.Multiline);
                 str = multiSpaceRegex.Replace(str, " ");
+                mergeWhitespace = false;
             }
 
+
             // Look for inline level
-            var headingRegex = new Regex("^(#{1,6})\\s+(.*?)$", RegexOptions.Compiled | RegexOptions.Multiline);
+            var headingRegex = new Regex("^(#{1,6})\\s+(.+?)$", RegexOptions.Compiled | RegexOptions.Multiline);
             if (headingRegex.Match(str).Success) {
                 string[] parts = headingRegex.Split(str, 2);
                 var match = headingRegex.Match(str).Groups;
@@ -128,31 +131,31 @@ namespace sysi.compiler {
                 return new SyComponent([CreateSyComponentTree(parts[0]), new QuoteComponent([CreateSyComponentTree(parts[1])]), CreateSyComponentTree(parts[^1])]);
             }
 
-            var boldRegex = new Regex("(\\*\\*)(.*?)\\1", RegexOptions.Compiled | RegexOptions.Multiline);
+            var boldRegex = new Regex("(\\*\\*)(.+?)\\1", RegexOptions.Compiled | RegexOptions.Multiline);
             if (boldRegex.Match(str).Success) {
                 string[] parts = boldRegex.Split(str, 2);
                 return new SyComponent([CreateSyComponentTree(parts[0]), new BoldComponent([CreateSyComponentTree(parts[2])]), CreateSyComponentTree(parts[^1])]);
             }
 
-            var underlineRegex = new Regex("(__)(.*?)\\1", RegexOptions.Compiled | RegexOptions.Multiline);
+            var underlineRegex = new Regex("(__)(.+?)\\1", RegexOptions.Compiled | RegexOptions.Multiline);
             if (underlineRegex.Match(str).Success) {
                 string[] parts = underlineRegex.Split(str, 2);
                 return new SyComponent([CreateSyComponentTree(parts[0]), new UnderlineComponent([CreateSyComponentTree(parts[2])]), CreateSyComponentTree(parts[^1])]);
             }
 
-            var italicizeRegex = new Regex("(\\*|_)(.*?)\\1", RegexOptions.Compiled | RegexOptions.Multiline);
+            var italicizeRegex = new Regex("(\\*|_)(.+?)\\1", RegexOptions.Compiled | RegexOptions.Multiline);
             if (italicizeRegex.Match(str).Success) {
                 string[] parts = italicizeRegex.Split(str, 2);
                 return new SyComponent([CreateSyComponentTree(parts[0]), new ItaliciseComponent([CreateSyComponentTree(parts[2])]), CreateSyComponentTree(parts[^1])]);
             }
 
-            var strikethroughRegex = new Regex("(~~)(.*?)\\1", RegexOptions.Compiled | RegexOptions.Multiline);
+            var strikethroughRegex = new Regex("(~~)(.+?)\\1", RegexOptions.Compiled | RegexOptions.Multiline);
             if (strikethroughRegex.Match(str).Success) {
                 string[] parts = strikethroughRegex.Split(str, 2);
                 return new SyComponent([CreateSyComponentTree(parts[0]), new ItaliciseComponent([CreateSyComponentTree(parts[2])]), CreateSyComponentTree(parts[^1])]);
             }
 
-            var inlineCodeRegex = new Regex("(\\`\\`)(.*?)\\1", RegexOptions.Compiled | RegexOptions.Multiline);
+            var inlineCodeRegex = new Regex("(\\`\\`)(.+?)\\1", RegexOptions.Compiled | RegexOptions.Multiline);
             if (inlineCodeRegex.Match(str).Success) {
                 string[] parts = inlineCodeRegex.Split(str, 2);
                 return new SyComponent([CreateSyComponentTree(parts[0]), new InlineCodeComponent([CreateSyComponentTree(parts[2])]), CreateSyComponentTree(parts[^1])]);
