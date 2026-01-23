@@ -1,4 +1,5 @@
 # How to use
+Sysi supports four different types of files to generate a static site. **SyFiles** (``.syl``) are similar to Markdown, while adding support for LaTeX and (in the future) runnable code. These are compiled to HTML with the SyCompiler, while **markdown** files (``.md``) are converted to HTML via Pandoc and inserted into the ``<!-- !body -->`` fragment (see [Fragments](#fragments)). Standard **HTML** (``.html``) and their contents will be automatically inserted as a ``<!-- !body -->`` fragment into the template of choice, with no modification. Standard **text files** (``.txt``) may also be used, may also be used, and these will be inserted into the compiled site with no modification (this allows writing of HTML with no modification). 
 
 ## Config
 
@@ -54,6 +55,8 @@ Default config file:
 
 ## Templates
 
+Templates are needed to insert the body text (Markdown files and SyFiles) into the HTML files. Templates must package all necessary components (such as CSS), as external references are not (yet) supported. 
+
 ### Fragments
 Fragments are inserted at compile time and are delimited ``<!-- !fragment_name -->``. There are three builtin fragments (``<!-- !body_text -->``, ``<!-- !navitems -->``, and ``<!-- !title -->``) that are reserved.
 
@@ -73,13 +76,14 @@ Example ``<!-- !navbar -->`` declaration:
 <!-- $navbar -->
 ```
 
-#### ``<!-- !title -->``
+#### Builtin Fragments
+##### ``<!-- !title -->``
 Inside the ``<head>`` div for page title information.
 
-#### ``<!-- !body_text -->``
+##### ``<!-- !body_text -->``
 Inserts the compiled markdown or SyFile into the template.
 
-#### ``<!-- !navitems -->``
+##### ``<!-- !navitems -->``
 Inserts the page title and a link in the form 
 ```html
 <li> <a href = "page_link"> Page Name <\a> <\li>
@@ -87,7 +91,13 @@ Inserts the page title and a link in the form
 
 ## Structure
 
+To structure a website, the directory layout of the sitemap is used. The top-level directory will be displayed on the navigation bar, unless the hidden item delimiter is used to prefix the file. If an item in the top-level directory is another directory (a subdirectory), the item on the navigation bar will be hoverable, and a drop down menu with it's contents are used. Any further folder will link to list pages by default. 
+
+A folder can have a default page when clicked on, by specifying a file titled ``_default`` (where ``_`` is replaced by the hidden item delimiter).
+
 ### Hidden items
+
+Hidden items are omitted during compile time, but may still be used as reference by other files in the site.
 
 ## Special features
 
