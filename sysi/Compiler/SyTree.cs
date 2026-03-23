@@ -1,4 +1,6 @@
-﻿using System;
+﻿using Pandoc;
+using sysi.Utils;
+using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Drawing;
@@ -27,38 +29,118 @@ namespace sysi.compiler {
                 else if (file.EndsWith(".html")) {
                     type = SyFile.Type.HTML;
                 }
+                else if (file.EndsWith(".txt")) {
+                    type = SyFile.Type.Text;
+                }
                 else {
+                    Console.WriteLine($"Omitting {file}");
                     continue;
                 }
-                var filePath = Path.Combine(path, file);
-                var text = File.ReadAllText(filePath);
-                tree.Add(new SyFile(filePath, text, type));
+                if (Path.GetFileNameWithoutExtension(file).StartsWith(Main.config.ignored_item_delimiter)) {
+                    Console.WriteLine($"Omitting {file}");
+                    continue;
+                }
+                var text = File.ReadAllText(file);
+                tree.Add(new SyFile(file, text, type));
             }
 
             var folders = Directory.GetDirectories(path);
             foreach (var folder in folders) {
-                var filePath = Path.Combine(path, folder);
+                Console.WriteLine(folder);
+                var filePath = Path.Combine(folder);
                 tree.Add(BuildSyFileTree(filePath));
             }
-            var config = new SyCategory.SyCategoryConfig();
+            var config = new SyCategoryConfig();
+            SyFile? pageOnClick = null;
             if (File.Exists(Path.Combine(path, ".about"))) {
                 config = JsonSerializer.Deserialize<SyCategoryConfig>(File.ReadAllText(Path.Combine(path, ".about")));
+
+                if (config?.page_on_click != null && config?.page_on_click != "") {
+                    var filePath = Path.Combine(path, config.page_on_click);
+                    var text = File.ReadAllText(filePath);
+                    SyFile.Type type = SyFile.Type.Text;
+                    if (filePath.EndsWith(".syl")) {
+                        type = SyFile.Type.Syl;
+                    }
+                    else if (filePath.EndsWith(".md")) {
+                        type = SyFile.Type.Markdown;
+                    }
+                    else if (filePath.EndsWith(".html")) {
+                        type = SyFile.Type.HTML;
+                    }
+                    pageOnClick = new SyFile(filePath, text, type);
+                }
             }
 
-            return new SyCategory(path, tree.ToArray(), config);
+            return new SyCategory(path, tree.ToArray(), config, pageOnClick);
         }
     }
 
 
-    internal class Sy {
+    internal abstract class Sy {
         public string path { get; }
         public Sy(string path) {
             this.path = path;
         }
+        public bool IsHidden() {
+            int length = Main.config.hidden_item_delimiter.Length;
+            var name = Path.GetFileName(this.path);
+            if (name.Length < length) {
+                return false;
+            }
+            var start = name.Substring(0, length);
+            return start.Equals(Main.config.hidden_item_delimiter);
+        }
+        public bool IsIgnored() {
+            int length = Main.config.ignored_item_delimiter.Length;
+            var name = Path.GetFileName(this.path);
+            if (name.Length < length) {
+                return false;
+            }
+            var start = name.Substring(0, length);
+            return start.Equals(Main.config.ignored_item_delimiter);
+        }
+        public abstract string GetCompiledPath();
+        public abstract string GetName();
+    }
+    internal class SyCategory : Sy {
+        public Sy[] children { get; }
+        private SyCategoryConfig? config { get; }
+        public SyFile? pageOnClick { get; set; } = null;
+
+        public SyCategory(string path, Sy[] children, SyCategoryConfig? config = null, SyFile? pageOnClick = null) : base(path) {
+            this.config = config;
+            this.children = children;
+            this.pageOnClick = pageOnClick;
+            children.OrderBy(o => o.path);
+        }
+        internal class SyCategoryConfig {
+            public string? page_on_click { get; set; } = null;
+        }
+       
+        public override string GetCompiledPath() {
+            if (config?.page_on_click != null && config?.page_on_click != "") {
+                var newPath = Path.GetFullPath(Path.Combine(this.path, config?.page_on_click ?? ""));
+                Console.WriteLine(newPath);
+                newPath = Path.Combine(Main.config.compiled_site, Path.GetRelativePath(Main.config.site_map, newPath));
+                newPath = Path.GetFullPath(newPath);
+                return Path.ChangeExtension(newPath, "html");
+            }
+            return "";
+        }
+
+        public override string GetName() {
+            var name = Path.GetFileName(this.path);
+            name = Path.GetFileNameWithoutExtension(name);
+            var omitTitleDelimiterRegex = new Regex($@"^{Main.config.omit_title_delimiter}.*?{Main.config.omit_title_delimiter}");
+            name = omitTitleDelimiterRegex.Replace(name, "");
+            name.Replace(Main.config.hidden_item_delimiter, "");
+            return name;
+        }
     }
 
     internal class SyFile : Sy {
-        public string text { get; }
+        string text { get; }
         public Type type { get; }
         public SyFile(string path, string text, Type type) : base(path) {
             this.text = text;
@@ -67,14 +149,31 @@ namespace sysi.compiler {
         internal enum Type {
             Markdown,
             Syl,
-            HTML
+            HTML,
+            Text
         }
 
         internal string AsHtml() {
-            return CreateSyComponentTree(text, true).AsHtml();
+            if (type.Equals(Type.Syl)) {
+                return CreateSyComponentTree(text, true).AsHtml();
+            } else if (type.Equals(Type.HTML)) {
+                return text;
+            } else if (type.Equals(Type.Markdown)) {
+                var outOptions = new HtmlOut { };
+
+                var options = new Pandoc.Options().DefaultsFile;
+
+                return PandocInstance.ConvertToText(
+                    text,
+                    new PandocMdIn(),
+                    outOptions
+                ).GetAwaiter().GetResult();
+            }
+            return text;
         }
 
-        private static SyComponent CreateSyComponentTree(string text, bool mergeWhitespace = false) {
+        private static SyComponent CreateSyComponentTree(string text, bool mergeWhiteSpace = false) {
+            var childrenMergeWhitespace = mergeWhiteSpace;
             // Look for blocks
             var str = text;
             str = str.Replace("\r\n", "\n");
@@ -83,7 +182,7 @@ namespace sysi.compiler {
             if (codeBlockRegex.Match(str).Success) {
                 string[] parts = codeBlockRegex.Split(str, 2);
                 string match = codeBlockRegex.Match(str).Groups[2].Value;
-                return new SyComponent([CreateSyComponentTree(parts[0], mergeWhitespace), new CodeBlockComponent([new TextComponent(match)]), CreateSyComponentTree(parts[^1], mergeWhitespace)]); // The second merge whitespace is true, because we haven't checked the end of the string yet.
+                return new SyComponent([CreateSyComponentTree(parts[0], childrenMergeWhitespace), new CodeBlockComponent([new TextComponent(match)]), CreateSyComponentTree(parts[^1], childrenMergeWhitespace)]); // The second merge whitespace is true, because we haven't checked the end of the string yet.
             }
             // Lists
             // Unnumbered lists
@@ -98,10 +197,10 @@ namespace sysi.compiler {
                     list.Add(CreateSyComponentTree((line?.Groups[1].Value) ?? ""));
                 }
 
-                return new SyComponent([CreateSyComponentTree(parts[0], mergeWhitespace), new ListComponent(list.ToArray()), CreateSyComponentTree(parts[^1], mergeWhitespace)]);
+                return new SyComponent([CreateSyComponentTree(parts[0], childrenMergeWhitespace), new ListComponent(list.ToArray()), CreateSyComponentTree(parts[^1], childrenMergeWhitespace)]);
             }
 
-            if (mergeWhitespace) {
+            if (mergeWhiteSpace) {
                 // Merge new lines
                 var newLineRegex = new Regex(@"(?<!\r?\n)\r?\n(?!\r?\n)", RegexOptions.Compiled);
                 str = newLineRegex.Replace(str, " ");
@@ -113,24 +212,33 @@ namespace sysi.compiler {
                 // Merge double spaces
                 var multiSpaceRegex = new Regex(" {2,}", RegexOptions.Compiled | RegexOptions.Multiline);
                 str = multiSpaceRegex.Replace(str, " ");
-                mergeWhitespace = false;
             }
 
 
-            // Look for inline level
+
             var headingRegex = new Regex("^(#{1,6})\\s+(.+?)$", RegexOptions.Compiled | RegexOptions.Multiline);
             if (headingRegex.Match(str).Success) {
                 string[] parts = headingRegex.Split(str, 2);
                 var match = headingRegex.Match(str).Groups;
-                return new SyComponent([CreateSyComponentTree(parts[0]), new HeadingComponent([CreateSyComponentTree(parts[2])], match[1].Length), CreateSyComponentTree(parts[^1])]);
+                return new SyComponent([CreateSyComponentTree(parts[0], childrenMergeWhitespace), new HeadingComponent([CreateSyComponentTree(parts[2])], match[1].Length), CreateSyComponentTree(parts[^1], childrenMergeWhitespace)]);
             }
 
             var quoteRegex = new Regex("^>\\s+(.*)$", RegexOptions.Compiled | RegexOptions.Multiline);
             if (quoteRegex.Match(str).Success) {
                 string[] parts = quoteRegex.Split(str, 2);
-                return new SyComponent([CreateSyComponentTree(parts[0]), new QuoteComponent([CreateSyComponentTree(parts[1])]), CreateSyComponentTree(parts[^1])]);
+                return new SyComponent([CreateSyComponentTree(parts[0], childrenMergeWhitespace), new QuoteComponent([CreateSyComponentTree(parts[1])]), CreateSyComponentTree(parts[^1], childrenMergeWhitespace)]);
+            }
+                
+            var paragraphRegex = new Regex(@"[^\r\n]+(?:\r?\n(?!)[^\r\n]+)*", RegexOptions.Compiled | RegexOptions.Multiline);
+            if (paragraphRegex.Match(str).Success && mergeWhiteSpace) {
+                string[] parts = paragraphRegex.Split(str, 2);
+                string match = paragraphRegex.Match(str).Value.Trim('\n');
+                return new SyComponent([CreateSyComponentTree(parts[0], childrenMergeWhitespace), new ParagraphComponent([CreateSyComponentTree(match)]), CreateSyComponentTree(parts[^1], childrenMergeWhitespace)]);
             }
 
+            childrenMergeWhitespace = false;
+
+            // Look for inline level
             var boldRegex = new Regex("(\\*\\*)(.+?)\\1", RegexOptions.Compiled | RegexOptions.Multiline);
             if (boldRegex.Match(str).Success) {
                 string[] parts = boldRegex.Split(str, 2);
@@ -163,6 +271,21 @@ namespace sysi.compiler {
 
             return new TextComponent(text);
         }
+
+        public override string GetCompiledPath() {
+            var newPath = Path.Combine(Main.config.compiled_site, Path.GetRelativePath(Main.config.site_map, this.path));
+            newPath = Path.GetFullPath(newPath);
+            return Path.ChangeExtension(newPath, "html");
+        }
+
+        public override string GetName() {
+            var name = Path.GetFileName(this.path);
+            name = Path.GetFileNameWithoutExtension(name);
+            var omitTitleDelimiterRegex = new Regex($@"^{Main.config.omit_title_delimiter}.*?{Main.config.omit_title_delimiter}");
+            name = omitTitleDelimiterRegex.Replace(name, "");
+            name.Replace(Main.config.hidden_item_delimiter, "");
+            return name;
+        }
     }
 
     internal class SyComponent {
@@ -190,10 +313,23 @@ namespace sysi.compiler {
         }
     }
 
+    internal class ParagraphComponent : SyComponent {
+        public override string AsHtml() {
+            var html = base.AsHtml();
+            if (html.Length == 0 || html.IsWhiteSpace()) {
+                return "";
+            }
+            return $"<p>\n{html}\n</p>\n";
+        }
+        public ParagraphComponent(SyComponent[] children) : base(children) {
+            this.children = children;
+        }
+    }
+
     internal class HeadingComponent : SyComponent {
         int count;
         public override string AsHtml() {
-            return $"<h{count}>{base.AsHtml()}</h{count}>";
+            return $"<h{count}>{base.AsHtml()}</h{count}>\n";
         }
         public HeadingComponent(SyComponent[] children, int count) : base(children) {
             this.count = count;
@@ -202,7 +338,7 @@ namespace sysi.compiler {
 
     internal class QuoteComponent : SyComponent {
         public override string AsHtml() {
-            return $"<blockquote>{base.AsHtml()}</blockquote>";
+            return $"<blockquote>{base.AsHtml()}</blockquote>\n";
         }
         public QuoteComponent(SyComponent[] children) : base(children) {
         }
@@ -210,7 +346,7 @@ namespace sysi.compiler {
 
     internal class CodeBlockComponent : SyComponent {
         public override string AsHtml() {
-            return $"<pre><code>\n{base.AsHtml()}\n</pre></code>";
+            return $"<pre><code>\n{base.AsHtml()}\n</pre></code>\n";
         }
         public CodeBlockComponent(SyComponent[] children) : base(children) {
             this.children = children;
@@ -224,7 +360,7 @@ namespace sysi.compiler {
                 childrenText[i] = $"<li>{children[i].AsHtml()}</li>\n";
             }
 
-            return $"<ol>\n{string.Join("", childrenText)}\n</ol>";
+            return $"<ol>\n{string.Join("", childrenText)}\n</ol>\n";
         }
         public ListComponent(SyComponent[] children) : base(children) {
             this.children = children;
@@ -276,22 +412,4 @@ namespace sysi.compiler {
         }
     }
 
-    internal class SyCategory : Sy {
-        Sy[] children { get; }
-        SyCategoryConfig config { get; }
-
-        public SyCategory(string path, Sy[] children) : base(path) {
-            this.config = new SyCategoryConfig();
-            this.children = children;
-        }
-
-        public SyCategory(string path, Sy[] children, SyCategoryConfig config) : base(path) {
-            this.config = config;
-            this.children = children;
-            children.OrderBy(o => o.path);
-        }
-        internal class SyCategoryConfig {
-            public string? page_on_click { get; set; } = null;
-        }
-    } 
 }
