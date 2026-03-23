@@ -109,7 +109,6 @@ namespace sysi.Compiler {
                     subMenu += "<ul>";
                     if (((SyCategory)category)?.pageOnClick != null && ((SyCategory)category)?.pageOnClick?.path != "") {
                         var refPath = category.GetCompiledPath();
-                        Console.WriteLine($"Category Path: {category.GetCompiledPath()}\nCurrent Path: {currentSy.GetCompiledPath()}\nRelative path: {Path.GetRelativePath(refPath, currentSy.GetCompiledPath())}");
                         refPath = Path.GetRelativePath(Path.GetDirectoryName(currentSy.GetCompiledPath()), refPath);
                         href = $"href = {refPath}";
                     }

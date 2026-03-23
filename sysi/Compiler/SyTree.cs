@@ -46,7 +46,6 @@ namespace sysi.compiler {
 
             var folders = Directory.GetDirectories(path);
             foreach (var folder in folders) {
-                Console.WriteLine(folder);
                 var filePath = Path.Combine(folder);
                 tree.Add(BuildSyFileTree(filePath));
             }
@@ -121,7 +120,6 @@ namespace sysi.compiler {
         public override string GetCompiledPath() {
             if (config?.page_on_click != null && config?.page_on_click != "") {
                 var newPath = Path.GetFullPath(Path.Combine(this.path, config?.page_on_click ?? ""));
-                Console.WriteLine(newPath);
                 newPath = Path.Combine(Main.config.compiled_site, Path.GetRelativePath(Main.config.site_map, newPath));
                 newPath = Path.GetFullPath(newPath);
                 return Path.ChangeExtension(newPath, "html");
