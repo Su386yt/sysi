@@ -10,6 +10,7 @@ namespace sysi.Utils {
         private const string CONFIG_PATH = CONFIG_FOLDER + ".config";
         public string page_prefix { get; set; } = ""; 
         public string page_extension { get; set; } = ".html";
+        public bool page_path_all_lowercase { get; set; } = true;
         public string hidden_item_delimiter { get; set; } = "_";
         public string ignored_item_delimiter { get; set; } = "_.";
         public string omit_title_delimiter { get; set; } = "-";

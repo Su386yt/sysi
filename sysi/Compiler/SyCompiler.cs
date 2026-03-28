@@ -42,11 +42,6 @@ namespace sysi.Compiler {
             if (newPath == null) {
                 newPath = sy.GetCompiledPath();
             }
-            else {
-                newPath = Path.Combine(Main.config.compiled_site, Path.GetRelativePath(Main.config.site_map, newPath));
-                newPath = Path.ChangeExtension(newPath, Main.config.page_extension);
-                newPath = $"{Main.config.page_prefix}{Path.GetFileNameWithoutExtension(newPath)}";
-            }
 
             if (!File.Exists(newPath)) {
                 if (Path.GetDirectoryName(newPath) != null) {
@@ -60,9 +55,7 @@ namespace sysi.Compiler {
         private static void CompileTextFile(SyFile sy) {
             var htmlFile = sy.AsHtml();
 
-            var newPath = Path.Combine(Main.config.compiled_site, Path.GetRelativePath(Main.config.site_map, sy.path));
-            newPath = Path.ChangeExtension(newPath, Main.config.page_extension);
-            newPath = $"{Main.config.page_prefix}{Path.GetFileNameWithoutExtension(newPath)}";
+            var newPath = sy.GetCompiledPath();
 
             if (!File.Exists(newPath)) {
                 Directory.CreateDirectory(Path.GetDirectoryName(newPath) ?? "");

@@ -277,9 +277,17 @@ namespace sysi.compiler {
         }
 
         public override string GetCompiledPath() {
-            var newPath = Path.Combine(Main.config.compiled_site, Path.GetRelativePath(Main.config.site_map, this.path));
-            newPath = Path.GetFullPath(newPath);
-            return Path.ChangeExtension(newPath, "html");
+
+            var newPath= Path.Combine(Main.config.compiled_site, Path.GetRelativePath(Main.config.site_map, this.path));
+            var directory = Path.GetDirectoryName(newPath) ?? "";
+            Console.WriteLine($"{newPath} {directory}");
+            var name = Path.GetFileName(newPath);
+            if (Main.config.page_path_all_lowercase) {
+                name = name.ToLower();
+            }
+            name = Path.ChangeExtension(name, Main.config.page_extension);
+            newPath = Path.Combine(directory, name);
+            return Path.GetFullPath(newPath);
         }
 
         public override string GetName() {
