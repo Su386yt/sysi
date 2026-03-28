@@ -5,6 +5,7 @@ using System.Collections;
 using System.Collections.Generic;
 using System.Drawing;
 using System.Runtime.CompilerServices;
+using System.Runtime.InteropServices;
 using System.Text;
 using System.Text.Json;
 using System.Text.RegularExpressions;
@@ -198,6 +199,13 @@ namespace sysi.compiler {
                 return new SyComponent([CreateSyComponentTree(parts[0], childrenMergeWhitespace), new ListComponent(list.ToArray()), CreateSyComponentTree(parts[^1], childrenMergeWhitespace)]);
             }
 
+            var headingRegex = new Regex("^(#{1,6})\\s+(.+?)$", RegexOptions.Compiled | RegexOptions.Multiline);
+            if (headingRegex.Match(str).Success) {
+                string[] parts = headingRegex.Split(str, 2);
+                var match = headingRegex.Match(str).Groups;
+                return new SyComponent([CreateSyComponentTree(parts[0]), new HeadingComponent([CreateSyComponentTree(parts[2])], match[1].Length), CreateSyComponentTree(parts[^1])]);
+            }
+
             if (mergeWhiteSpace) {
                 // Merge new lines
                 var newLineRegex = new Regex(@"(?<!\r?\n)\r?\n(?!\r?\n)", RegexOptions.Compiled);
@@ -211,15 +219,7 @@ namespace sysi.compiler {
                 var multiSpaceRegex = new Regex(" {2,}", RegexOptions.Compiled | RegexOptions.Multiline);
                 str = multiSpaceRegex.Replace(str, " ");
             }
-
-
-
-            var headingRegex = new Regex("^(#{1,6})\\s+(.+?)$", RegexOptions.Compiled | RegexOptions.Multiline);
-            if (headingRegex.Match(str).Success) {
-                string[] parts = headingRegex.Split(str, 2);
-                var match = headingRegex.Match(str).Groups;
-                return new SyComponent([CreateSyComponentTree(parts[0], childrenMergeWhitespace), new HeadingComponent([CreateSyComponentTree(parts[2])], match[1].Length), CreateSyComponentTree(parts[^1], childrenMergeWhitespace)]);
-            }
+            
 
             var quoteRegex = new Regex("^>\\s+(.*)$", RegexOptions.Compiled | RegexOptions.Multiline);
             if (quoteRegex.Match(str).Success) {
@@ -237,6 +237,12 @@ namespace sysi.compiler {
             childrenMergeWhitespace = false;
 
             // Look for inline level
+            var hyperlinkRegex = new Regex(@"\[(.+?)\]\((.+?)\)", RegexOptions.Compiled);
+            if (hyperlinkRegex.Match(str).Success) {
+                string[] parts = hyperlinkRegex.Split(str, 2);
+                return new SyComponent([CreateSyComponentTree(parts[0]), new HyperlinkComponent([CreateSyComponentTree(parts[1])], parts[2]), CreateSyComponentTree(parts[^1])]);
+            }
+
             var boldRegex = new Regex("(\\*\\*)(.+?)\\1", RegexOptions.Compiled | RegexOptions.Multiline);
             if (boldRegex.Match(str).Success) {
                 string[] parts = boldRegex.Split(str, 2);
@@ -321,6 +327,16 @@ namespace sysi.compiler {
         }
         public ParagraphComponent(SyComponent[] children) : base(children) {
             this.children = children;
+        }
+    }
+
+    internal class HyperlinkComponent : SyComponent {
+        string href = "";
+        public override string AsHtml() {
+            return $"<a href={href}>{base.AsHtml()}</a>";
+        }
+        public HyperlinkComponent(SyComponent[] children, string href) : base(children) {
+            this.href = href;
         }
     }
 

@@ -129,7 +129,6 @@ namespace sysi.Compiler {
                     refPath = Path.GetRelativePath(Path.GetDirectoryName(currentSy.GetCompiledPath()), refPath);
                     href = $"href = {refPath}";
                 }
-                Console.WriteLine($"${category.GetName()} Href: {href}");
                 str += $"<li><a {href}> {category.GetName()} <a>";
                 str += subMenu;
                 str += "</li>";
