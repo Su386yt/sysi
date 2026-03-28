@@ -237,6 +237,19 @@ namespace sysi.compiler {
             childrenMergeWhitespace = false;
 
             // Look for inline level
+            var imageRegex = new Regex(@"!\[(.*?)\]\((.*?)(?:\s+""(.*?)"")?\)", RegexOptions.Compiled);
+            if (imageRegex.Match(str).Success) {
+                string[] parts = imageRegex.Split(str, 2);
+                var groups = imageRegex.Match(str).Groups;
+                string altText = groups[1].Value;
+                string href = groups[2].Value;
+                string? mouseoverText = null;
+                if (groups.Count > 3) {
+                    mouseoverText = groups[3].Value;
+                }
+                return new SyComponent([CreateSyComponentTree(parts[0]), new ImageComponent(altText, href, mouseoverText), CreateSyComponentTree(parts[^1])]);
+            }
+
             var hyperlinkRegex = new Regex(@"\[(.+?)\]\((.+?)\)", RegexOptions.Compiled);
             if (hyperlinkRegex.Match(str).Success) {
                 string[] parts = hyperlinkRegex.Split(str, 2);
@@ -277,7 +290,6 @@ namespace sysi.compiler {
         }
 
         public override string GetCompiledPath() {
-
             var newPath= Path.Combine(Main.config.compiled_site, Path.GetRelativePath(Main.config.site_map, this.path));
             var directory = Path.GetDirectoryName(newPath) ?? "";
             Console.WriteLine($"{newPath} {directory}");
@@ -345,6 +357,19 @@ namespace sysi.compiler {
         }
         public HyperlinkComponent(SyComponent[] children, string href) : base(children) {
             this.href = href;
+        }
+    }
+    internal class ImageComponent : SyComponent {
+        string altText;
+        string href;
+        string mouseoverText;
+        public override string AsHtml() {
+            return $"<img src=\"{href}\" alt=\"{base.AsHtml()}\" title=\"{mouseoverText}\">";
+        }
+        public ImageComponent(string altText, string href, string? mouseoverText) : base([]) {
+            this.href = altText;
+            this.href = href;
+            this.mouseoverText = mouseoverText ?? "";
         }
     }
 

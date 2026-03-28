@@ -14,6 +14,7 @@ namespace sysi.Utils {
         public string hidden_item_delimiter { get; set; } = "_";
         public string ignored_item_delimiter { get; set; } = "_.";
         public string omit_title_delimiter { get; set; } = "-";
+        public string copy_to_compiled_delimiter { get; set; } = "~";
         public string site_map { get; set; } = "sysi/site";
         public string compiled_site { get; set; } = "sysi/compiled";
         public string home_page { get; set; } = "_home";
