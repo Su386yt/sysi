@@ -9,7 +9,7 @@ namespace sysi.Utils {
         private const string CONFIG_FOLDER = "sysi/site/";
         private const string CONFIG_PATH = CONFIG_FOLDER + ".config";
         public string page_prefix { get; set; } = ""; 
-        public string page_suffix { get; set; } = ".html";
+        public string page_extension { get; set; } = ".html";
         public string hidden_item_delimiter { get; set; } = "_";
         public string ignored_item_delimiter { get; set; } = "_.";
         public string omit_title_delimiter { get; set; } = "-";
